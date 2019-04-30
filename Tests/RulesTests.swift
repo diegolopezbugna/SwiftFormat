@@ -6286,6 +6286,64 @@ class RulesTests: XCTestCase {
         XCTAssertEqual(try format(input + "\n", rules: FormatRules.all, options: options), output + "\n")
     }
 
+    func testNoInsertSelfInEnumsAssociatedValues() {
+        let input = """
+        private enum MPPChargeFeedbackRowType: Hashable {
+            var hashValue: Int {
+                switch self {
+                case .continueButton:
+                    return 4
+                }
+            }
+
+            case continueButton(isEnabled: Bool, handler: () -> Void)
+
+            static func == (lhs: MPPChargeFeedbackRowType, rhs: MPPChargeFeedbackRowType) -> Bool {
+                return lhs.hashValue == rhs.hashValue
+            }
+        }
+
+        extension MPPEditConceptFeedbackRowView: MPPChargeFeedbackRowView {
+            func setup(for rowType: MPPChargeFeedbackRowType) {
+                self.rowType = rowType
+                if case let MPPChargeFeedbackRowType.continueButton(isEnabled, handler) = rowType {
+                    self.button?.isEnabled = isEnabled
+                    self.handler = handler
+                }
+            }
+        }
+        """
+        let output = """
+        private enum MPPChargeFeedbackRowType: Hashable {
+            var hashValue: Int {
+                switch self {
+                case .continueButton:
+                    return 4
+                }
+            }
+
+            case continueButton(isEnabled: Bool, handler: () -> Void)
+
+            static func == (lhs: MPPChargeFeedbackRowType, rhs: MPPChargeFeedbackRowType) -> Bool {
+                return lhs.hashValue == rhs.hashValue
+            }
+        }
+
+        extension MPPEditConceptFeedbackRowView: MPPChargeFeedbackRowView {
+            func setup(for rowType: MPPChargeFeedbackRowType) {
+                self.rowType = rowType
+                if case let MPPChargeFeedbackRowType.continueButton(isEnabled, handler) = rowType {
+                    self.button?.isEnabled = isEnabled
+                    self.handler = handler
+                }
+            }
+        }
+        """
+        let options = FormatOptions(hoistPatternLet: true, explicitSelf: .insert)
+        XCTAssertEqual(try format(input, rules: [FormatRules.redundantSelf, FormatRules.hoistPatternLet], options: options), output)
+        XCTAssertEqual(try format(input + "\n", rules: FormatRules.all, options: options), output + "\n")
+    }
+
     func testNoInsertSelfForPatternLet() {
         let input = "class Foo {\n    func foo() {}\n    func bar() {\n        switch x {\n        case .bar(let foo, var bar): print(foo + bar)\n        }\n    }\n}"
         let output = "class Foo {\n    func foo() {}\n    func bar() {\n        switch x {\n        case .bar(let foo, var bar): print(foo + bar)\n        }\n    }\n}"
